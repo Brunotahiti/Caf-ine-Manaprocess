@@ -229,7 +229,10 @@ final class AppModel: ObservableObject {
             try controller.setSleepDisabled(false)
             sleepDisabled = false
         } catch {
-            sleepDisabled = true
+            // La commande a échoué, mais la veille est peut-être déjà normale
+            // (par exemple si l'activation n'a jamais abouti) : on relit
+            // l'état réel, ce qui ne demande aucun droit.
+            sleepDisabled = (try? controller.isSleepDisabled()) != false
         }
     }
 
