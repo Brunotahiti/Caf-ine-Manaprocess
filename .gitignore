@@ -1,0 +1,5 @@
+.build/
+.swiftpm/
+.superpowers/
+Caféine.app/
+.DS_Store
