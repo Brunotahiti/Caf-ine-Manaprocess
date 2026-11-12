@@ -57,9 +57,9 @@ public enum Policy {
         if let endDate, now >= endDate {
             return .stop(.timerElapsed)
         }
-        // Sans batterie lisible, les règles liées à la batterie ne s'appliquent pas.
-        if !power.onAC, let percent = power.batteryPercent {
-            if percent <= batteryThreshold {
+        if !power.onAC {
+            // Sans niveau lisible, le seuil de batterie ne s'applique pas.
+            if let percent = power.batteryPercent, percent <= batteryThreshold {
                 return .stop(.batteryLow(percent: percent))
             }
             if acOnly {

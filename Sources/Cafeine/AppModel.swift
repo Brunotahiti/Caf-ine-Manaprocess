@@ -1,4 +1,5 @@
 import CafeineCore
+import Combine
 import Foundation
 import ServiceManagement
 
@@ -8,6 +9,8 @@ final class AppModel: ObservableObject {
     static let shared = AppModel()
 
     @Published private(set) var status: Status = .inactive
+    /// Message sans rapport avec l'état de veille (lancement au démarrage).
+    @Published private(set) var notice: String?
 
     @Published var acOnly: Bool {
         didSet {
@@ -49,13 +52,18 @@ final class AppModel: ObservableObject {
     private var timer: Timer?
 
     /// L'utilisateur a activé Caféine (elle peut néanmoins être en pause).
-    @Published private var enabled = false
+    @Published private var enabled = false {
+        didSet { updateActivity() }
+    }
     private var endDate: Date?
-    /// Dernier état `disablesleep` appliqué avec succès.
+    /// Vrai tant que la veille du système est, ou pourrait être, désactivée.
+    /// Ne repasse à faux qu'après un retour à la veille normale confirmé.
     private var sleepDisabled = false
     /// Une demande d'autorisation est en cours.
     private var authorizing = false
     private var revertingLaunchAtLogin = false
+    /// Empêche macOS de ralentir le minuteur de réévaluation (App Nap).
+    private var activity: NSObjectProtocol?
 
     private init() {
         let preferences = Preferences(defaults: .standard)
@@ -71,8 +79,13 @@ final class AppModel: ObservableObject {
 
     func start() {
         // Un plantage ou une extinction brutale a pu laisser la veille désactivée.
-        if (try? controller.isSleepDisabled()) == true {
-            try? controller.setSleepDisabled(false)
+        // En cas de doute sur l'état réel, on tente aussi de la rétablir.
+        if (try? controller.isSleepDisabled()) != false {
+            sleepDisabled = true
+            restoreNormalSleep()
+            if sleepDisabled {
+                status = .error("Erreur : impossible de rétablir la veille")
+            }
         }
 
         let monitor = PowerMonitor { [weak self] in
@@ -88,14 +101,13 @@ final class AppModel: ObservableObject {
         self.timer = timer
     }
 
-    /// Rétablit la veille normale avant de quitter. Les erreurs sont ignorées :
-    /// il n'y a plus d'interface pour les afficher.
+    /// Rétablit la veille normale avant de quitter. L'état réel du système
+    /// est relu : on ne se fie pas seulement à l'état mémorisé.
     func shutdown() {
         timer?.invalidate()
         enabled = false
-        if sleepDisabled {
-            try? controller.setSleepDisabled(false)
-            sleepDisabled = false
+        if sleepDisabled || (try? controller.isSleepDisabled()) != false {
+            restoreNormalSleep()
         }
     }
 
@@ -146,11 +158,15 @@ final class AppModel: ObservableObject {
             thermal: monitor.currentThermal(),
             endDate: endDate,
             now: Date())
+        let wasAwake = sleepDisabled
 
         switch decision {
         case .inactive:
             // Le statut garde la raison du dernier arrêt ou la dernière erreur.
-            break
+            // Si un retour à la veille normale a échoué, on réessaie ici.
+            if sleepDisabled {
+                restoreNormalSleep()
+            }
         case .stayAwake:
             if apply(sleepDisabled: true) {
                 status = .active(until: endDate)
@@ -158,10 +174,12 @@ final class AppModel: ObservableObject {
         case .pause(let reason):
             if apply(sleepDisabled: false) {
                 status = .paused(reason)
+                if wasAwake { sleepIfLidClosed() }
             }
         case .stop(let reason):
             if deactivate() {
                 status = .stopped(reason)
+                if wasAwake { sleepIfLidClosed() }
             }
         }
     }
@@ -176,10 +194,14 @@ final class AppModel: ObservableObject {
         return apply(sleepDisabled: false)
     }
 
-    /// Applique l'état voulu s'il diffère du dernier état appliqué.
+    /// Applique l'état voulu s'il diffère de l'état mémorisé.
     /// En cas d'échec, désactive Caféine, affiche l'erreur et renvoie `false`.
     private func apply(sleepDisabled wanted: Bool) -> Bool {
         guard wanted != sleepDisabled else { return true }
+        if wanted {
+            // Pessimiste : dès la tentative, la veille est peut-être désactivée.
+            sleepDisabled = true
+        }
         do {
             try controller.setSleepDisabled(wanted)
             sleepDisabled = wanted
@@ -188,16 +210,45 @@ final class AppModel: ObservableObject {
             enabled = false
             endDate = nil
             if wanted {
-                // Par prudence, tente de revenir à la veille normale.
-                try? controller.setSleepDisabled(false)
+                restoreNormalSleep()
             }
-            sleepDisabled = false
+            // Si `sleepDisabled` reste vrai, `evaluate()` réessaiera.
             if let error = error as? SleepError, error == .unauthorized {
                 status = .error("Autorisation manquante")
             } else {
                 status = .error("Erreur : impossible de modifier la veille")
             }
             return false
+        }
+    }
+
+    /// Tente de revenir à la veille normale ; `sleepDisabled` ne repasse à
+    /// faux qu'en cas de succès confirmé.
+    private func restoreNormalSleep() {
+        do {
+            try controller.setSleepDisabled(false)
+            sleepDisabled = false
+        } catch {
+            sleepDisabled = true
+        }
+    }
+
+    /// Après un arrêt ou une pause automatique capot fermé, macOS ne se
+    /// rendort pas forcément de lui-même : on le lui demande.
+    private func sleepIfLidClosed() {
+        if controller.isLidClosed() {
+            controller.sleepNow()
+        }
+    }
+
+    private func updateActivity() {
+        if enabled, activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep,
+                reason: "Surveillance de la batterie et du minuteur")
+        } else if !enabled, let current = activity {
+            ProcessInfo.processInfo.endActivity(current)
+            activity = nil
         }
     }
 
@@ -220,10 +271,14 @@ final class AppModel: ObservableObject {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
+            // L'état réel est relu ci-dessous.
+        }
+        let actual = SMAppService.mainApp.status == .enabled
+        notice = actual == launchAtLogin ? nil : "Lancement au démarrage indisponible"
+        if actual != launchAtLogin {
             revertingLaunchAtLogin = true
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            launchAtLogin = actual
             revertingLaunchAtLogin = false
-            status = .error("Lancement au démarrage indisponible")
         }
     }
 }

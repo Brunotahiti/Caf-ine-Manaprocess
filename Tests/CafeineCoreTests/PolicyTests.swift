@@ -87,4 +87,9 @@ final class PolicyTests: XCTestCase {
     func testLowBatteryBeatsACOnly() {
         XCTAssertEqual(decide(acOnly: true, power: battery(5)), .stop(.batteryLow(percent: 5)))
     }
+
+    func testACOnlyOnBatteryWithUnreadableLevelPauses() {
+        XCTAssertEqual(decide(acOnly: true, power: PowerState(onAC: false, batteryPercent: nil)),
+                       .pause(.onBattery))
+    }
 }

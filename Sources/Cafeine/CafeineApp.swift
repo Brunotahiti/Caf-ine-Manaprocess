@@ -33,6 +33,9 @@ private struct MenuContent: View {
 
     var body: some View {
         Text(StatusText.text(for: model.status))
+        if let notice = model.notice {
+            Text(notice)
+        }
 
         Divider()
 

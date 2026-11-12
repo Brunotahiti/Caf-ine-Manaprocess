@@ -27,8 +27,10 @@ Dans le dossier du projet :
 ./build.sh
 ```
 
-Le script crée `Caféine.app` dans ce même dossier. Pour lancer aussi les
-tests :
+Le script crée `Caféine.app` dans ce même dossier.
+
+Les tests sont facultatifs et demandent l'application Xcode complète (les
+outils en ligne de commande seuls ne fournissent pas toujours XCTest) :
 
 ```bash
 swift test
@@ -56,9 +58,11 @@ mot de passe, et rien d'autre. Elle est nécessaire parce que macOS n'autorise
 que l'administrateur à désactiver la veille capot fermé, et que Caféine doit
 pouvoir la rétablir seule, capot fermé, quand un garde-fou se déclenche.
 
-Le nom de votre compte doit être composé de minuscules, chiffres, tirets et
-tirets bas (par exemple `bruno` ou `jean-luc`). Sinon, Caféine refuse
-d'installer la règle.
+Le nom court de votre compte doit commencer par une minuscule ou un tiret
+bas, puis ne contenir que des minuscules, chiffres, tirets et tirets bas (par
+exemple `bruno` ou `jean-luc`). Un nom avec une majuscule ou un point, comme
+`prenom.nom`, est refusé : Caféine affiche alors « Erreur : nom d'utilisateur
+non pris en charge ». La commande `whoami` affiche votre nom court.
 
 ## Le menu
 
@@ -88,6 +92,10 @@ Après un arrêt, la première ligne du menu en indique la raison, par exemple
 « Arrêté : batterie à 19 % ». Le seuil de batterie ne s'applique pas quand le
 Mac est branché.
 
+Si le capot est fermé au moment d'un arrêt ou d'une pause automatique,
+Caféine met aussitôt le Mac en veille. Après une pause, la reprise
+automatique a lieu quand le Mac est réveillé et rebranché.
+
 ## Vérifier que tout fonctionne
 
 1. Cliquez sur **Activer**. La première ligne affiche « Actif ».
@@ -103,7 +111,7 @@ Mac est branché.
    `SleepDisabled 0`.
 5. Réactivez, puis quittez Caféine : la commande affiche encore
    `SleepDisabled 0`.
-6. Choisissez la durée « 1 h » : la première ligne affiche
+6. Relancez Caféine et cliquez sur **Activer**. Choisissez la durée « 1 h » : la première ligne affiche
    « Actif jusqu'à » suivi de l'heure de fin.
 7. Cochez « Sur secteur uniquement » et débranchez le câble : la première
    ligne affiche « En pause : sur batterie », puis « Actif » au rebranchement.
@@ -121,6 +129,11 @@ sudo pmset -a disablesleep 0
 
 **« Autorisation manquante ».** La règle a été supprimée ou modifiée. Cliquez
 de nouveau sur **Activer** pour la réinstaller.
+
+**« Erreur : impossible de rétablir la veille ».** Caféine n'a pas pu
+revenir à la veille normale, le plus souvent parce que la règle
+d'autorisation a disparu. Elle réessaie toutes les 30 secondes ; vous pouvez
+aussi exécuter la commande `sudo pmset` ci-dessus.
 
 **« Lancement au démarrage indisponible ».** macOS peut refuser cette option
 à une application qui n'est pas signée par un développeur enregistré.

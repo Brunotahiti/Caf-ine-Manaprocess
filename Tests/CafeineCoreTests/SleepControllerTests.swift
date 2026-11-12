@@ -178,4 +178,51 @@ final class SleepControllerTests: XCTestCase {
         assertThrows(.invalidUserName("Bruno")) { try controller.installAuthorization() }
         XCTAssertTrue(runner.calls.isEmpty)
     }
+
+    // MARK: Capot et mise en veille
+
+    func testIsLidClosedTrue() {
+        runner.results = [CommandResult(exitCode: 0, stdout: """
+            +-o IOPMrootDomain  <class IOPMrootDomain>
+                {
+                  "AppleClamshellState" = Yes
+                  "AppleClamshellCausesSleep" = Yes
+                }
+            """)]
+        XCTAssertTrue(controller.isLidClosed())
+        XCTAssertEqual(runner.calls, [.init(
+            executable: "/usr/sbin/ioreg",
+            arguments: ["-r", "-k", "AppleClamshellState", "-d", "1"])])
+    }
+
+    func testIsLidClosedFalse() {
+        runner.results = [CommandResult(exitCode: 0, stdout: """
+                  "AppleClamshellState" = No
+                  "AppleClamshellCausesSleep" = Yes
+            """)]
+        XCTAssertFalse(controller.isLidClosed())
+    }
+
+    func testIsLidClosedWithoutLid() {
+        runner.results = [CommandResult(exitCode: 0, stdout: "")]
+        XCTAssertFalse(controller.isLidClosed())
+    }
+
+    func testIsLidClosedWhenCommandFails() {
+        runner.results = [CommandResult(exitCode: 1, stdout: "\"AppleClamshellState\" = Yes")]
+        XCTAssertFalse(controller.isLidClosed())
+        runner.shouldThrow = true
+        XCTAssertFalse(controller.isLidClosed())
+    }
+
+    func testSleepNow() {
+        controller.sleepNow()
+        XCTAssertEqual(runner.calls, [.init(executable: "/usr/bin/pmset", arguments: ["sleepnow"])])
+    }
+
+    func testSleepNowIgnoresFailure() {
+        runner.shouldThrow = true
+        controller.sleepNow()
+        XCTAssertEqual(runner.calls.count, 1)
+    }
 }

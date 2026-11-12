@@ -123,6 +123,15 @@ Quand l'utilisateur a activé Caféine, les règles s'appliquent dans cet ordre 
 Le seuil de batterie ne s'applique pas sur secteur. Sur un Mac sans batterie,
 seuls le minuteur et l'état thermique s'appliquent.
 
+Ajouts issus de la relecture du code :
+
+- Après un arrêt ou une pause automatique, si le capot est fermé
+  (`AppleClamshellState` lu par `ioreg`), Caféine exécute `pmset sleepnow`.
+- Si le retour à la veille normale échoue, Caféine le retente à chaque
+  réévaluation et à la fermeture de l'app.
+- « Sur secteur uniquement » met en pause sur batterie même si le niveau de
+  batterie est illisible.
+
 ### Cohérence de l'état système
 
 - À la fermeture de l'app (`applicationWillTerminate`) : `disablesleep 0`.

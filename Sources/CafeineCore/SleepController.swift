@@ -121,6 +121,25 @@ public struct SleepController {
         }
     }
 
+    /// Vrai si le capot est fermé. Faux en cas de doute (Mac sans capot,
+    /// lecture impossible) : on ne force jamais la veille sans certitude.
+    public func isLidClosed() -> Bool {
+        guard
+            let result = try? runner.run(
+                "/usr/sbin/ioreg", ["-r", "-k", "AppleClamshellState", "-d", "1"]),
+            result.exitCode == 0
+        else { return false }
+        return result.stdout.split(whereSeparator: \.isNewline).contains { line in
+            line.trimmingCharacters(in: .whitespaces) == "\"AppleClamshellState\" = Yes"
+        }
+    }
+
+    /// Met le Mac en veille immédiatement. Ne demande pas de droits root.
+    /// Un échec est ignoré : la veille normale est déjà rétablie.
+    public func sleepNow() {
+        _ = try? runner.run(Self.pmset, ["sleepnow"])
+    }
+
     private static func message(_ result: CommandResult) -> String {
         result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
     }
