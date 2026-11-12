@@ -176,7 +176,7 @@ Paquet Swift sans dépendance externe, trois cibles.
 
 - `build.sh` : `swift build -c release`, assemble `Caféine.app`
   (`Contents/MacOS/Cafeine`, `Contents/Info.plist` avec `LSUIElement` à
-  `true`, identifiant `com.cafeine.app`, version minimale macOS 13), puis
+  `true`, identifiant `cloud.manaprocess.cafeine`, version minimale macOS 13), puis
   `codesign --force --sign -`.
 - `README.md` en français : prérequis (`xcode-select --install`),
   compilation, installation dans `/Applications`, utilisation,

@@ -13,6 +13,13 @@ mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/Cafeine"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
+# Le numéro de version vient du fichier VERSION, seule source de vérité.
+VERSION="$(tr -d '[:space:]' < VERSION)"
+/usr/libexec/PlistBuddy \
+    -c "Set :CFBundleShortVersionString $VERSION" \
+    -c "Set :CFBundleVersion $VERSION" \
+    "$APP/Contents/Info.plist"
+
 # Signature locale (ad hoc) : suffisante pour lancer l'app sur ce Mac.
 codesign --force --sign - "$APP"
 

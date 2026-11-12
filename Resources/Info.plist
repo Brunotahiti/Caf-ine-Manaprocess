@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Cafeine</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.cafeine.app</string>
+	<string>cloud.manaprocess.cafeine</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

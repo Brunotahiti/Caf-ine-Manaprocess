@@ -149,6 +149,64 @@ Ajoutez alors Caféine à la main dans Réglages Système > Général > Ouvertur
    sudo rm /etc/sudoers.d/cafeine
    ```
 
+## Distribuer Caféine à d'autres personnes
+
+`./release.sh` produit `Caféine.dmg`, signé et notarisé par Apple : les
+autres utilisateurs l'ouvrent sans avertissement de macOS. Il faut un compte
+Apple Developer, et trois préparatifs à faire une seule fois.
+
+### 1. Créer le certificat « Developer ID Application »
+
+Sur [developer.apple.com/account](https://developer.apple.com/account), dans
+Certificats, créez un certificat de type **Developer ID Application** et
+installez-le dans le trousseau (double-clic sur le fichier téléchargé). Avec
+Xcode : Réglages > Comptes > Gérer les certificats > « + ». Seul le titulaire
+du compte peut créer ce type de certificat.
+
+Cette commande doit ensuite afficher une ligne « Developer ID Application » :
+
+```bash
+security find-identity -v -p codesigning
+```
+
+### 2. Créer un mot de passe d'app
+
+Sur [account.apple.com](https://account.apple.com), dans Connexion et
+sécurité > Mots de passe pour apps, créez un mot de passe (par exemple nommé
+« notarisation »). Il sert uniquement à l'envoi vers Apple.
+
+### 3. Enregistrer le profil de notarisation
+
+Remplacez l'adresse et l'identifiant d'équipe (10 caractères, visible dans
+Membership sur developer.apple.com) par les vôtres. La commande demande le
+mot de passe d'app et le range dans le trousseau ; rien n'est écrit dans le
+projet.
+
+```bash
+xcrun notarytool store-credentials cafeine-notary --apple-id "vous@exemple.com" --team-id "ABCDE12345"
+```
+
+### Publier une version
+
+```bash
+./release.sh
+```
+
+Le script compile, signe, crée le `.dmg`, l'envoie à Apple, attend le verdict
+(quelques minutes en général), puis agrafe le ticket et vérifie le résultat.
+Il s'arrête avec un message si une étape échoue.
+
+Pour publier une nouvelle version, modifiez d'abord le numéro dans le fichier
+`VERSION`.
+
+À savoir :
+
+- L'app ne fonctionne que sur les Mac ayant le même type de processeur que
+  celui qui l'a compilée (Apple Silicon ou Intel).
+- Les autres utilisateurs devront saisir leur mot de passe administrateur à
+  la première activation, et la limite sur les noms de compte décrite plus
+  haut s'applique à eux aussi.
+
 ## Pour les curieux
 
 - `Sources/CafeineCore` : la logique (règles de décision, commandes `pmset`,
